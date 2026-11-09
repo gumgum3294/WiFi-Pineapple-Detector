@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pineapple Detector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+    :root{
+        --accent:#00ffcc;
+        --accent-2:#7c5cff;
+        --danger:#ff5c7a;
+        --safe:#38e08a;
+        --text:#f4f6f8;
+        --muted:#82888f;
+        --stroke:rgba(255,255,255,.09);
+        --radius:26px;
+        --ease:cubic-bezier(.22,1,.36,1);
+    }
+
+    *{box-sizing:border-box;}
+
+    html,body{height:100%;}
+
+    body{
+        margin:0;
+        font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+        background:#000;
+        color:var(--text);
+        display:grid;
+        place-items:center;
+        padding:28px;
+        overflow:hidden;
+        -webkit-font-smoothing:antialiased;
+    }
+
+    /* ---------- ambient stage ---------- */
+    .stage{
+        position:fixed;
+        inset:0;
+        z-index:0;
+        overflow:hidden;
+    }
+
+    .stage::before{
+        content:"";
+        position:absolute;
+        inset:-25%;
+        background:
+            radial-gradient(42% 38% at 22% 18%, rgba(0,255,204,.16), transparent 70%),
+            radial-gradient(46% 42% at 82% 78%, rgba(124,92,255,.20), transparent 72%),
+            radial-gradient(38% 34% at 50% 108%, rgba(0,140,255,.14), transparent 70%);
+        filter:blur(30px);
+        animation:drift 26s var(--ease) infinite alternate;
+    }
+
+    .stage::after{
+        content:"";
+        position:absolute;
+        inset:0;
+        background-image:
+            linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+        background-size:56px 56px;
+        mask-image:radial-gradient(70% 70% at 50% 50%, #000 20%, transparent 100%);
+        -webkit-mask-image:radial-gradient(70% 70% at 50% 50%, #000 20%, transparent 100%);
+        opacity:.7;
+    }
+
+    .grain{
+        position:fixed;
+        inset:0;
+        z-index:1;
+        pointer-events:none;
+        opacity:.30;
+        mix-blend-mode:overlay;
+        background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+    }
+
+    @keyframes drift{
+        0%{transform:translate3d(-2%,-1%,0) scale(1);}
+        100%{transform:translate3d(3%,2%,0) scale(1.12);}
+    }
+
+    /* ---------- card ---------- */
+    .card{
+        position:relative;
+        z-index:2;
+        width:100%;
+        max-width:376px;
+        padding:30px 28px 26px;
+        border-radius:var(--radius);
+        background:
+            linear-gradient(160deg, rgba(255,255,255,.085), rgba(255,255,255,.022) 42%, rgba(255,255,255,.045));
+        backdrop-filter:blur(34px) saturate(165%);
+        -webkit-backdrop-filter:blur(34px) saturate(165%);
+        box-shadow:
+            0 34px 90px -22px rgba(0,0,0,.92),
+            0 2px 10px rgba(0,0,0,.6),
+            inset 0 1px 0 rgba(255,255,255,.13),
+            inset 0 -1px 0 rgba(255,255,255,.04);
+        isolation:isolate;
+        animation:rise .8s var(--ease) both;
+    }
+
+    /* gradient hairline border */
+    .card::before{
+        content:"";
+        position:absolute;
+        inset:0;
+        border-radius:inherit;
+        padding:1px;
+        background:linear-gradient(155deg, rgba(255,255,255,.34), rgba(255,255,255,.05) 38%, rgba(0,255,204,.22) 78%, rgba(124,92,255,.28));
+        -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+        mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+        -webkit-mask-composite:xor;
+        mask-composite:exclude;
+        pointer-events:none;
+        z-index:3;
+    }
+
+    /* top specular sheen */
+    .card::after{
+        content:"";
+        position:absolute;
+        top:0;
+        left:12%;
+        right:12%;
+        height:1px;
+        background:linear-gradient(90deg, transparent, rgba(255,255,255,.75), transparent);
+        pointer-events:none;
+        z-index:4;
+    }
+
+    @keyframes rise{
+        from{opacity:0; transform:translateY(22px) scale(.975); filter:blur(6px);}
+        to{opacity:1; transform:none; filter:none;}
+    }
+
+    /* ---------- header ---------- */
+    .eyebrow{
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        font-size:10.5px;
+        font-weight:600;
+        letter-spacing:.18em;
+        text-transform:uppercase;
+        color:var(--muted);
+        padding:6px 11px 6px 9px;
+        border-radius:999px;
+        background:rgba(255,255,255,.045);
+        border:1px solid var(--stroke);
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.07);
+    }
+
+    .dot{
+        width:6px;
+        height:6px;
+        border-radius:50%;
+        background:var(--accent);
+        box-shadow:0 0 10px var(--accent);
+        animation:pulse 2.4s ease-in-out infinite;
+    }
+
+    @keyframes pulse{
+        0%,100%{opacity:1; transform:scale(1);}
+        50%{opacity:.35; transform:scale(.7);}
+    }
+
+    h1{
+        margin:18px 0 8px;
+        font-size:29px;
+        line-height:1.1;
+        font-weight:600;
+        letter-spacing:-.032em;
+    }
+
+    h1 em{
+        font-style:normal;
+        background:linear-gradient(100deg, var(--accent), #8affe4 38%, var(--accent-2));
+        -webkit-background-clip:text;
+        background-clip:text;
+        color:transparent;
+    }
+
+    .sub{
+        margin:0 0 24px;
+        font-size:12.5px;
+        line-height:1.55;
+        color:var(--muted);
+        font-weight:400;
+        max-width:30ch;
+    }
+
+    /* ---------- field ---------- */
+    .field{
+        position:relative;
+        display:flex;
+        align-items:center;
+        gap:8px;
+        padding:5px 5px 5px 15px;
+        border-radius:16px;
+        background:rgba(0,0,0,.42);
+        border:1px solid var(--stroke);
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.05), inset 0 0 22px rgba(0,0,0,.5);
+        transition:border-color .3s var(--ease), box-shadow .3s var(--ease), background .3s var(--ease);
+    }
+
+    .field:focus-within{
+        border-color:rgba(0,255,204,.55);
+        background:rgba(0,0,0,.55);
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,.06),
+            0 0 0 4px rgba(0,255,204,.10),
+            0 0 26px -4px rgba(0,255,204,.42);
+    }
+
+    .field svg{
+        flex:none;
+        width:15px;
+        height:15px;
+        color:#5c626a;
+        transition:color .3s var(--ease);
+    }
+
+    .field:focus-within svg{color:var(--accent);}
+
+    input[type="text"]{
+        flex:1;
+        min-width:0;
+        padding:12px 0;
+        border:0;
+        outline:0;
+        background:transparent;
+        color:var(--text);
+        font-family:inherit;
+        font-size:13.5px;
+        letter-spacing:.02em;
+        caret-color:var(--accent);
+    }
+
+    input::placeholder{color:#5a6067;}
+
+    /* ---------- buttons ---------- */
+    .btn{
+        font-family:inherit;
+        font-size:13px;
+        font-weight:600;
+        letter-spacing:.01em;
+        border-radius:13px;
+        cursor:pointer;
+        border:1px solid transparent;
+        transition:transform .22s var(--ease), box-shadow .3s var(--ease),
+                   background .3s var(--ease), color .3s var(--ease), border-color .3s var(--ease);
+        -webkit-tap-highlight-color:transparent;
+    }
+
+    .btn:active{transform:scale(.975);}
+
+    .btn:focus-visible{
+        outline:2px solid var(--accent);
+        outline-offset:2px;
+    }
+
+    .btn-arrow{
+        flex:none;
+        display:grid;
+        place-items:center;
+        width:40px;
+        height:40px;
+        border-radius:11px;
+        color:#04120f;
+        background:linear-gradient(150deg, #6dffe0, var(--accent) 45%, #00d6ab);
+        box-shadow:0 6px 20px -6px rgba(0,255,204,.75), inset 0 1px 0 rgba(255,255,255,.45);
+    }
+
+    .btn-arrow:hover{
+        box-shadow:0 8px 26px -5px rgba(0,255,204,.95), inset 0 1px 0 rgba(255,255,255,.6);
+        transform:translateY(-1px);
+    }
+
+    .btn-arrow svg{width:16px; height:16px;}
+
+    .btn-ghost{
+        width:100%;
+        margin-top:10px;
+        padding:12px;
+        color:#c9ced4;
+        background:rgba(255,255,255,.045);
+        border:1px solid var(--stroke);
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.07);
+        backdrop-filter:blur(10px);
+        -webkit-backdrop-filter:blur(10px);
+    }
+
+    .btn-ghost:hover{
+        color:#fff;
+        background:rgba(255,255,255,.085);
+        border-color:rgba(255,255,255,.2);
+        transform:translateY(-1px);
+    }
+
+    /* ---------- result ---------- */
+    .result{
+        margin-top:18px;
+        padding:14px 15px;
+        min-height:56px;
+        display:flex;
+        flex-direction:column;
+        justify-content:center;
+        gap:4px;
+        border-radius:15px;
+        font-size:13px;
+        line-height:1.45;
+        background:rgba(0,0,0,.34);
+        border:1px solid rgba(255,255,255,.055);
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+        transition:border-color .35s var(--ease), box-shadow .35s var(--ease), background .35s var(--ease);
+    }
+
+    .result .label{
+        display:flex;
+        align-items:center;
+        gap:8px;
+        font-weight:600;
+        letter-spacing:-.005em;
+    }
+
+    .result .meta{
+        font-size:11.5px;
+        color:var(--muted);
+        word-break:break-word;
+    }
+
+    .result[data-state="idle"]{color:#767c84;}
+
+    .result[data-state="scanning"]{
+        color:var(--accent);
+        border-color:rgba(0,255,204,.28);
+        background:
+            linear-gradient(100deg, rgba(0,255,204,.06), rgba(0,255,204,.015) 40%, rgba(0,255,204,.06));
+        background-size:220% 100%;
+        animation:sweep 1.6s linear infinite;
+    }
+
+    @keyframes sweep{
+        from{background-position:120% 0;}
+        to{background-position:-120% 0;}
+    }
+
+    .result[data-state="danger"]{
+        color:var(--danger);
+        border-color:rgba(255,92,122,.4);
+        background:rgba(255,92,122,.08);
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 0 30px -12px rgba(255,92,122,.85);
+    }
+
+    .result[data-state="safe"]{
+        color:var(--safe);
+        border-color:rgba(56,224,138,.34);
+        background:rgba(56,224,138,.06);
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 0 30px -14px rgba(56,224,138,.8);
+    }
+
+    .result[data-state="danger"] .meta,
+    .result[data-state="safe"] .meta{color:#8f959c;}
+
+    /* ---------- footer ---------- */
+    .foot{
+        margin-top:16px;
+        display:flex;
+        justify-content:space-between;
+        font-size:10px;
+        letter-spacing:.13em;
+        text-transform:uppercase;
+        color:#4e545b;
+    }
+
+    @media (max-width:420px){
+        .card{padding:26px 22px 22px; border-radius:22px;}
+        h1{font-size:26px;}
+    }
+
+    @media (prefers-reduced-motion:reduce){
+        *,*::before,*::after{
+            animation-duration:.001ms !important;
+            animation-iteration-count:1 !important;
+            transition-duration:.001ms !important;
+        }
+    }
+</style>
+</head>
+<body>
+    <div class="stage"></div>
+    <div class="grain"></div>
+
+    <main class="card">
+        <div class="eyebrow"><span class="dot"></span>Network Scan</div>
+
+        <h1>Pineapple<br><em>Detector</em></h1>
+        <p class="sub">Check whether a host is a WiFi Pineapple or just another box on the wire.</p>
+
+        <div class="field">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18"/>
+            </svg>
+            <input type="text" id="ipInput" placeholder="Enter target IP" autocomplete="off" spellcheck="false" aria-label="Target IP address">
+            <button class="btn btn-arrow" onclick="detectPineapple()" aria-label="Detect selected IP">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M5 12h13M12 5l7 7-7 7"/>
+                </svg>
+            </button>
+        </div>
+
+        <button class="btn btn-ghost" onclick="detectCurrentIP()">Detect my current IP</button>
+
+        <div class="result" id="result" data-state="idle" role="status" aria-live="polite">
+            <span class="label">Awaiting target</span>
+            <span class="meta">Enter an address or pull your own to begin.</span>
+        </div>
+
+        <div class="foot">
+            <span>Geo lookup</span>
+            <span>Org heuristic</span>
+        </div>
+    </main>
+
+<script>
+    const input = document.getElementById('ipInput');
+    const resultDiv = document.getElementById('result');
+
+    function setResult(state, label, meta) {
+        resultDiv.dataset.state = state;
+        resultDiv.innerHTML = '';
+        const l = document.createElement('span');
+        l.className = 'label';
+        l.textContent = label;
+        resultDiv.appendChild(l);
+        if (meta) {
+            const m = document.createElement('span');
+            m.className = 'meta';
+            m.textContent = meta;
+            resultDiv.appendChild(m);
+        }
+    }
+
+    async function detectPineapple() {
+        const ip = input.value.trim();
+
+        if (!ip) {
+            setResult('idle', 'No target', 'Please enter an IP address first.');
+            input.focus();
+            return;
+        }
+
+        setResult('scanning', 'Scanning host…', ip);
+
+        try {
+            const response = await fetch(`https://ipinfo.io/${ip}/json`);
+            const data = await response.json();
+
+            if (data.org && data.org.includes('Evil Machines')) {
+                setResult('danger', 'WiFi Pineapple detected', data.org);
+                return;
+            }
+
+            setResult('safe', 'Not a WiFi Pineapple', `ISP/Org: ${data.org || 'Unknown'}`);
+        } catch (error) {
+            setResult('idle', 'Detection failed', 'Lookup error — check the address and retry.');
+            console.error(error);
+        }
+    }
+
+    async function detectCurrentIP() {
+        setResult('scanning', 'Resolving your IP…', '');
+        try {
+            const response = await fetch('https://api.ipify.org?format=json');
+            const data = await response.json();
+            input.value = data.ip;
+            detectPineapple();
+        } catch (error) {
+            setResult('idle', 'Lookup failed', 'Could not retrieve your current IP.');
+        }
+    }
+
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') detectPineapple();
+    });
+</script>
+</body>
+</html>
